@@ -13,7 +13,12 @@ import requests
 
 TIMEZONE = ZoneInfo("America/Sao_Paulo")
 GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me"
-BILL_SENDER = "faturaporemail@riodejaneiro.enel.com"
+BILL_LABEL = "reembolso"
+JIRA_CLOUD_ID = "dd89c3ef-5bf5-4b4d-916a-1d52fa64b32b"
+JIRA_PROJECT = "RH"
+JIRA_ISSUE_TYPE = "Auxílio Home Office"
+SUMMARY_TEMPLATE = "Auxílio Home Office - {name}"
+DESCRIPTION_TEMPLATE = "Conta de luz no valor de R$ {amount}"
 AMOUNT_PATTERN = re.compile(r"R\$\s*([\d.]+,\d{2})")
 DUE_DATE_PATTERN = re.compile(r"vencimento\W*(\d{2})/(\d{2})/(\d{4})", re.IGNORECASE)
 
@@ -76,7 +81,7 @@ class Gmail:
         return response.json()
 
     def find_bill(self, due_year: int, due_month: int) -> Bill | None:
-        query = f"from:{BILL_SENDER} has:attachment newer_than:120d"
+        query = f"label:{BILL_LABEL} has:attachment newer_than:120d"
         for reference in self._get("messages", q=query).get("messages", []):
             message = self._get(f"messages/{reference['id']}", format="full")
             parsed = parse_bill_text(self._body_text(message["payload"]))
@@ -121,6 +126,11 @@ class Jira:
         self.session.auth = (email, token)
         self.session.headers["Accept"] = "application/json"
 
+    def current_user_display_name(self) -> str:
+        response = self.session.get(f"{self.base_url}/myself", timeout=30)
+        response.raise_for_status()
+        return response.json()["displayName"]
+
     def find_ticket_this_month(self, project: str, issue_type: str) -> str | None:
         jql = (
             f'project = {project} AND issuetype = "{issue_type}" '
@@ -159,11 +169,9 @@ class Jira:
 
 
 def main() -> None:
-    project = env("JIRA_PROJECT")
-    issue_type = env("JIRA_ISSUE_TYPE")
-    jira = Jira(env("JIRA_CLOUD_ID"), env("JIRA_EMAIL"), env("JIRA_API_TOKEN"))
+    jira = Jira(JIRA_CLOUD_ID, env("JIRA_EMAIL"), env("JIRA_API_TOKEN"))
 
-    existing = jira.find_ticket_this_month(project, issue_type)
+    existing = jira.find_ticket_this_month(JIRA_PROJECT, JIRA_ISSUE_TYPE)
     if existing:
         print(f"Ticket for this month already exists: {existing}")
         return
@@ -172,11 +180,15 @@ def main() -> None:
     gmail = Gmail(env("GMAIL_CLIENT_ID"), env("GMAIL_CLIENT_SECRET"), env("GMAIL_REFRESH_TOKEN"))
     bill = gmail.find_bill(due_year, due_month)
     if not bill:
-        sys.exit(f"No Enel bill due in {due_month:02d}/{due_year} found in Gmail")
+        sys.exit(f"No bill labeled {BILL_LABEL} due in {due_month:02d}/{due_year} found in Gmail")
 
     unlocked_pdf = unlock_pdf(bill.pdf, env("PDF_PASSWORD"))
+    name = os.environ.get("TICKET_NAME") or jira.current_user_display_name()
     issue_key = jira.create_ticket(
-        project, issue_type, env("TICKET_SUMMARY"), f"Conta de luz no valor de R$ {bill.amount}"
+        JIRA_PROJECT,
+        JIRA_ISSUE_TYPE,
+        SUMMARY_TEMPLATE.format(name=name),
+        DESCRIPTION_TEMPLATE.format(amount=bill.amount),
     )
     jira.attach(issue_key, f"{bill.due_date.month:02d}.pdf", unlocked_pdf)
     print(f"Created {issue_key} for bill due {bill.due_date:%d/%m/%Y} (R$ {bill.amount})")

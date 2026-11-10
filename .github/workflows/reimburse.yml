@@ -21,10 +21,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python reimburse.py
         env:
-          JIRA_CLOUD_ID: dd89c3ef-5bf5-4b4d-916a-1d52fa64b32b
-          JIRA_PROJECT: RH
-          JIRA_ISSUE_TYPE: Auxílio Home Office
-          TICKET_SUMMARY: Auxílio Home Office - Niasi Magalhães
+          TICKET_NAME: ${{ vars.TICKET_NAME }}
           JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
           JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
           GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
