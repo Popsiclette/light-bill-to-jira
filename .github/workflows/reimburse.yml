@@ -1,4 +1,4 @@
-name: Electricity reimbursement
+name: Auxílio Home Office
 
 on:
   schedule:
