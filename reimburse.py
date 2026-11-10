@@ -182,7 +182,7 @@ def main() -> None:
     if not bill:
         sys.exit(f"No bill labeled {BILL_LABEL} due in {due_month:02d}/{due_year} found in Gmail")
 
-    unlocked_pdf = unlock_pdf(bill.pdf, env("PDF_PASSWORD"))
+    unlocked_pdf = unlock_pdf(bill.pdf, os.environ.get("PDF_PASSWORD", ""))
     name = os.environ.get("TICKET_NAME") or jira.current_user_display_name()
     issue_key = jira.create_ticket(
         JIRA_PROJECT,
