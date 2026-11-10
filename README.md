@@ -87,6 +87,16 @@ Seu e-mail usado no Jira.
 
 Senha do PDF, caso haja.
 
+#### `TELEGRAM_BOT_TOKEN` e `TELEGRAM_CHAT_ID` (opcionais)
+
+Com esses dois secrets, você recebe uma mensagem no Telegram quando a tarefa é criada ou quando a execução falha. Cada pessoa cria o próprio bot: não compartilhe o token, porque quem o tem consegue enviar mensagens como o bot e ler o que é enviado a ele.
+
+1. No Telegram, abra o **@BotFather** (confira o selo azul de verificado) e envie `/newbot`.
+2. Escolha um nome de exibição e um username terminado em `bot`. O BotFather responde com o token: salve-o direto no secret `TELEGRAM_BOT_TOKEN`.
+3. Abra o chat com o seu bot pelo link que o BotFather enviou, clique em **Start** e mande qualquer mensagem.
+4. No navegador, abra `https://api.telegram.org/bot<TOKEN>/getUpdates`, trocando `<TOKEN>` pelo token. Procure `"chat":{"id":` e salve o número no secret `TELEGRAM_CHAT_ID`. Se o resultado vier vazio, mande outra mensagem ao bot e recarregue a página.
+5. Apague essa página do histórico do navegador, porque o token fica na URL.
+
 ### Variáveis
 
 #### `TICKET_NAME`
@@ -98,4 +108,4 @@ O resumo é `Auxílio Home Office - <nome>`, e o nome vem do seu perfil no Jira.
 1. No seu fork, abra a aba **Actions** e clique em **I understand my workflows, go ahead and enable them**. O GitHub deixa os workflows desligados em forks, e sem isso nada roda, sem nenhum aviso de erro.
 2. Para testar, selecione o workflow **Auxílio Home Office** e clique em **Run workflow**. Se a tarefa do mês ainda não existir, ela é criada; se já existir, o log mostra a chave dela e nada é feito.
 3. A partir daí, o workflow roda sozinho todos os dias, do dia 1 ao dia 10, às 09:00 (horário de Brasília).
-4. Em **Settings → Notifications → Actions** (configurações da sua conta GitHub, não do repositório), deixe marcada a notificação por e-mail de workflows com falha, para saber quando algo der errado, como a conta ainda não ter chegado ou um token ter expirado.
+4. Com o Telegram configurado, você recebe uma mensagem quando a tarefa é criada e quando a execução falha. Sem ele, o único aviso é o e-mail que o próprio GitHub envia em caso de falha: deixe essa notificação ligada em **Settings → Notifications → Actions** (configurações da sua conta GitHub, não do repositório).
