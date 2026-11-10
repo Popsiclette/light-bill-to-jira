@@ -15,6 +15,7 @@ TIMEZONE = ZoneInfo("America/Sao_Paulo")
 GMAIL_API = "https://gmail.googleapis.com/gmail/v1/users/me"
 BILL_LABEL = "reembolso"
 JIRA_CLOUD_ID = "dd89c3ef-5bf5-4b4d-916a-1d52fa64b32b"
+JIRA_BROWSE_URL = "https://mobicare.jira.com/browse"
 JIRA_PROJECT = "RH"
 JIRA_ISSUE_TYPE = "Auxílio Home Office"
 SUMMARY_TEMPLATE = "Auxílio Home Office - {name}"
@@ -35,6 +36,15 @@ def env(name: str) -> str:
     if not value:
         sys.exit(f"Missing environment variable {name}")
     return value
+
+
+def publish_outcome(**values: str) -> None:
+    output_path = os.environ.get("GITHUB_OUTPUT")
+    if not output_path:
+        return
+    with open(output_path, "a", encoding="utf-8") as output:
+        for key, value in values.items():
+            output.write(f"{key}={value}\n")
 
 
 def previous_month(today: date) -> tuple[int, int]:
@@ -174,6 +184,7 @@ def main() -> None:
     existing = jira.find_ticket_this_month(JIRA_PROJECT, JIRA_ISSUE_TYPE)
     if existing:
         print(f"Ticket for this month already exists: {existing}")
+        publish_outcome(status="exists")
         return
 
     due_year, due_month = previous_month(datetime.now(TIMEZONE).date())
@@ -184,15 +195,16 @@ def main() -> None:
 
     unlocked_pdf = unlock_pdf(bill.pdf, os.environ.get("PDF_PASSWORD", ""))
     name = os.environ.get("TICKET_NAME") or jira.current_user_display_name()
-    issue_key = jira.create_ticket(
-        JIRA_PROJECT,
-        JIRA_ISSUE_TYPE,
-        SUMMARY_TEMPLATE.format(name=name),
-        DESCRIPTION_TEMPLATE.format(amount=bill.amount),
-    )
+    description = DESCRIPTION_TEMPLATE.format(amount=bill.amount)
+    issue_key = jira.create_ticket(JIRA_PROJECT, JIRA_ISSUE_TYPE, SUMMARY_TEMPLATE.format(name=name), description)
     jira.attach(issue_key, f"{bill.due_date.month:02d}.pdf", unlocked_pdf)
     print(f"Created {issue_key} for bill due {bill.due_date:%d/%m/%Y} (R$ {bill.amount})")
+    publish_outcome(status="created", message=f"✅ {issue_key} criada: {description} {JIRA_BROWSE_URL}/{issue_key}")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (Exception, SystemExit) as error:
+        publish_outcome(status="failed", message=f"❌ Falhou: {' '.join(str(error).split())}")
+        raise
